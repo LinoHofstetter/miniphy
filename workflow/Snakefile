@@ -4,32 +4,26 @@ min_version("6.2.0")
 
 shell.prefix("set -euo pipefail")
 
-
 report: "report/workflow.rst"
-
 
 ##### Target rules #####
 
-
 include: "rules/init.smk"
 
-
-## WILDCARDS CONSTRAINS
+## WILDCARD CONSTRAINTS
 wildcard_constraints:
     sample=r"[a-zA-Z0-9_-]+",
     batch=r"[a-zA-Z0-9_-]+",
     protocol=r"(asm|pre|post)",
 
-
 # TODO: add genome stats, make it configurable
 rule all:
     input:
+        "output/clustered_fastas.tsv",  # Ensure this file is created as part of the workflow
         fn_stats_batches(),
-        #fn_stats_genomes(),
-
+        # fn_stats_genomes(),
 
 ##### Modules #####
-
 
 #
 include: "rules/tree.smk"
@@ -41,3 +35,15 @@ include: "rules/pre.smk"
 include: "rules/post.smk"
 #
 include: "rules/stats.smk"
+
+##### New Rule to Generate clustered_fastas.tsv #####
+
+rule generate_clustered_fastas:
+    input:
+        "{input_data_file}.tsv.xz"  # No fixed directory specified
+    output:
+        "output/clustered_fastas.tsv"
+    shell:
+        """
+        python create_batches.py {input}
+        """
