@@ -24,7 +24,6 @@ def clean_species_name(name):
     return re.sub('[^a-zA-Z0-9 ]+', '', name).replace(" ", "_").lower()
 
 
-
 class Batching:
 
     def __init__(self, input_fn, cluster_min_size, cluster_max_size,
@@ -38,9 +37,6 @@ class Batching:
         self.col_fn = col_fn
         self.comments = comments
 
-        # Define output path for the clustered_fastas.tsv file
-        self.output_tsv = "output/clustered_fastas.tsv"
-        
         self.clusters = collections.defaultdict(list)
         self.pseudoclusters = collections.defaultdict(list)
         self.batches = collections.defaultdict(list)
@@ -48,13 +44,16 @@ class Batching:
 
     def _load_clusters(self):
         with xopen(self.input_fn) as fo:
-            for genome_count, x in enumerate(csv.DictReader(fo, delimiter="\t")):
+            for genome_count, x in enumerate(csv.DictReader(fo,
+                                                            delimiter="\t")):
+                #species = x["hit1_species"]
+                #fn = x["path"]
                 species = clean_species_name(x[self.col_species])
                 fn = x[self.col_fn]
                 self.clusters[species].append(fn)
                 self.dbg_info[fn] = species
         print(
-            f"Loaded {genome_count + 1} genomes across {len(self.clusters)} species clusters",
+            f"Loaded {genome_count} genomes across {len(self.clusters)} species clusters",
             file=sys.stderr)
 
     def _create_dustbin(self):
@@ -85,7 +84,8 @@ class Batching:
 
             for i, v in enumerate(fns):
                 batch_number = 1 + i // current_max_size
-                batch_name = "{}__{:02}".format(pseudocluster_name, batch_number)
+                batch_name = "{}__{:02}".format(pseudocluster_name,
+                                                batch_number)
                 batches.add(batch_name)
                 self.batches[batch_name].append(v)
         print(
@@ -93,7 +93,6 @@ class Batching:
             file=sys.stderr)
 
     def _write_batches(self):
-        os.makedirs(self.output_d, exist_ok=True)
         for batch_name, l in self.batches.items():
             fn = os.path.join(self.output_d, f"{batch_name}.txt")
             with open(fn, "w+") as f:
@@ -102,25 +101,13 @@ class Batching:
                         f.write(f"{x}\t#{self.dbg_info[x]}\n")
                     else:
                         f.write(f"{x}\n")
-        print(f"Finished writing batches to {self.output_d}", file=sys.stderr)
-
-    def write_clustered_fastas_tsv(self):
-        """Writes the clustered species data to a fixed output TSV file."""
-        os.makedirs(os.path.dirname(self.output_tsv), exist_ok=True)
-        with open(self.output_tsv, "w") as tsv_file:
-            writer = csv.writer(tsv_file, delimiter="\t")
-            writer.writerow(["species", "filename"])
-            for species, files in self.clusters.items():
-                for file in files:
-                    writer.writerow([species, file])
-        print(f"Generated clustered fastas TSV: {self.output_tsv}", file=sys.stderr)
+        print(f"Finished", file=sys.stderr)
 
     def run(self):
         self._load_clusters()
         self._create_dustbin()
         self._create_batches()
         self._write_batches()
-        self.write_clustered_fastas_tsv()  # Generate the fixed TSV file with clusters
 
 
 def main():
